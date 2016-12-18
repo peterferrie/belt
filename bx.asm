@@ -30,7 +30,7 @@
 ; -----------------------------------------------
 ; Bel-T block cipher in x86 assembly
 ;
-; size: 499
+; size: 497
 ;
 ; global calls use cdecl convention
 ;
@@ -103,17 +103,16 @@ _belt_encryptx:
     pushfd            ; save flags
     js     b_l1
     
+    ; rotate key 128-bits for decryption
     mov    esi, edi
-reverse_key:
+    mov    cl, 4
+    add    edi, 7*4
+rotate_key:
     lodsd             ; eax=key[i]
-    push   7
-    pop    ebp
-    sub    ebp, ecx
-    xchg   eax, [edi+ebp*4]
+    xchg   eax, [edi]
+    sub    edi, 4
     mov    [esi-4], eax
-    inc    ecx
-    cmp    ecx, 4
-    jnz    reverse_key
+    loop   rotate_key
 b_l1:
     mov    esi, ebx   ; esi=blk
     lodsd
