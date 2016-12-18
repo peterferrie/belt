@@ -30,7 +30,7 @@
 ; -----------------------------------------------
 ; Bel-T block cipher in x86 assembly
 ;
-; size: 520
+; size: 500
 ;
 ; global calls use cdecl convention
 ;
@@ -63,45 +63,49 @@ endstruc
 %define b   ecx
 %define c   edx
 %define d   esi
-%define e   ebp
-%define key edi
+%define e   edi
+%define G   ebp
 
-%define G   dword[esp+ 8] ; before call
-
-%define p   dword[esp+ 8]
-%define i   dword[esp+12] 
-%define j   dword[esp+16]
-%define enc dword[esp+20]
+; workspace on stack
+struc work_t
+  flgs dd ?
+  j    dd ?
+  key  dd ?
+  i    dd ?
+  blk  dd ?
+endstruc
 
 belt_encryptx:
 _belt_encryptx:
     pushad
     lea    esi, [esp+32+4]
-    pushad                   ; allocate 32-bytes for key
+    pushad            ; allocate 32-bytes for key
     mov    edi, esp
     lodsd
-    xchg   ebx, eax          ; ebx=blk
+    xchg   ebx, eax   ; ebx=blk
     lodsd
-    push   eax               ; save ks
+    push   eax        ; save ks
     lodsd
-    cdq                      ; edx=0
+    cdq               ; edx=0
     ; memcpy (key.v8, (uint8_t*)ks, 32);
     push   32
     pop    ecx
-    pop    esi               ; esi=ks
+    pop    esi        ; esi=ks
     push   edi
-    rep    movsb             ; copy key to local buffer
+    rep    movsb      ; copy key to local buffer
     pop    edi
     
-    push   eax               ; enc
-    push   edx               ; j
-    push   edx               ; i
-    test   eax, eax          ; BELT_ENCRYPT
+    push   ebx        ; save blk ptr
+    push   edx        ; save i
+    push   edi        ; save key
+    push   edx        ; save j
+    test   eax, eax   ; BELT_ENCRYPT?
+    pushfd            ; save result
     je     b_l1
     
     mov    esi, edi
 reverse_key:
-    lodsd                    ; eax=key[i]
+    lodsd             ; eax=key[i]
     push   7
     pop    ebp
     sub    ebp, ecx
@@ -111,25 +115,37 @@ reverse_key:
     cmp    ecx, 4
     jnz    reverse_key
 b_l1:
-    mov    esi, ebx
-    push   esi               ; save pointer to blk
+    mov    esi, ebx   ; esi=blk
     lodsd
-    xchg   a, eax
+    xchg   a, eax     ; a = blk[0]
     lodsd
-    xchg   b, eax
+    xchg   b, eax     ; b = blk[1]
     lodsd
-    xchg   c, eax
+    xchg   c, eax     ; c = blk[2]
     lodsd
-    xchg   d, eax
+    xchg   d, eax     ; d = blk[3]
     call   b_l2
     ; ------------------------
+    ; G function
+    ; ------------------------
     pushad
-    mov    eax, [esp+32+ 4]
-    mov    ebx, [esp+32+20] ; j
-    and    ebx, 7
-    add    eax, [edi+ebx*4]
+    mov    esi, [esp+_esp]   ; esi=esp
+    lodsd                    ; eax=return address
+    lodsd                    ; eax=x
+    xchg   eax, edx          ; edx=x
+    lodsd                    ; eax=r
+    push   eax               ; save r
+    lodsd                    ; eax=eflags
+    lodsd                    ; eax=j
+    inc    dword[esi-4]      ; j++
+    xchg   eax, ebx          ; ebx=j
+    lodsd                    ; eax=key
+    xchg   eax, edi          ; edi=key
+    and    ebx, 7            ; j &= 7
+    add    edx, [edi+ebx*4]  ; x += key[j & 7]
+    xchg   eax, edx
     push   4
-    pop    ecx
+    pop    ecx               ; ecx=4
     call   g_l0
     ; sbox
     db 0xB1, 0x94, 0xBA, 0xC8, 0x0A, 0x08, 0xF5, 0x3B,
@@ -165,112 +181,116 @@ b_l1:
     db 0xD4, 0xEF, 0xD9, 0xB4, 0x3A, 0x62, 0x28, 0x75,
     db 0x91, 0x14, 0x10, 0xEA, 0x77, 0x6C, 0xDA, 0x1D
 g_l0:
-    pop    ebx
+    pop    ebx                 ; ebx=H 
 g_l1:
-    xlatb                    ; u.b[i] = H[u.b[i]];
-    ror    eax, 8
+    xlatb                      ; u.b[i] = H[u.b[i]];
+    ror    eax, 8              ; u.w = ROTR(u.w, 8)
     loop   g_l1
-    mov    ecx, [esp+32+8]
-    rol    eax, cl           ; return ROTL32(u.w, r);
+    pop    ecx                 ; ecx=r
+    rol    eax, cl             ; return ROTL32(u.w, r);
     mov    [esp+_eax], eax
     popad
-    inc    dword[esp+20]     ; j++
     retn   2*4
     ; -----------------------
 b_l2:
+    pop    G
+b_l3:
     push   5
     push   a
     call   G   
-    xor    b, t            ; b ^= G(a,     key, j+0, 5);
+    xor    b, t       ; b ^= G(a, key, j+0, 5);
     
     push   21
     push   d
     call   G     
-    xor    c, t            ; c ^= G(d,     key, j+1,21);
+    xor    c, t       ; c ^= G(d, key, j+1,21);
     
     push   13
     push   b
     call   G       
-    sub    a, t            ; a -= G(b,     key, j+2,13);
+    sub    a, t       ; a -= G(b, key, j+2,13);
     
     push   21
-    mov    t, b
-    add    t, c
+    lea    t, [b + c]
     push   t
-    call   G               ; e  = G(b + c, key, j+3,21);
+    call   G          ; e  = G(b + c, key, j+3,21);
     xchg   t, e
     
-    mov    t, i            ; t = i + 1;
+    mov    t, [esp+i] ; t = i + 1;
     inc    t
     
-    cmp    dword[esp+4*4], BELT_ENCRYPT
+    popfd
+    pushfd
     je     b_l4
     
     push   7                 
     pop    t
-    sub    t, i
-    inc    t               ; t = (7 - i) + 1;
+    sub    t, dword[esp+i]
+    inc    t         ; t = (7 - i) + 1;
 b_l4:
-    xor    e, t            ; e   ^= t;
-    add    b, e            ; v.b += e;
-    sub    c, e            ; v.c -= e;
+    xor    e, t      ; e   ^= t;
+    add    b, e      ; v.b += e;
+    sub    c, e      ; v.c -= e;
     
     push   13
     push   c
     call   G
-    add    d, t       ; v.d += G(v.c,     &key, j+4,13);
+    add    d, t      ; v.d += G(v.c, &key, j+4,13);
     
     push   21
     push   a
     call   G
-    xor    b, t       ; v.b ^= G(v.a,     &key, j+5,21);
+    xor    b, t      ; v.b ^= G(v.a, &key, j+5,21);
     
     push   5
     push   d
     call   G
-    xor    c, t       ; v.c ^= G(v.d,     &key, j+6, 5);
+    xor    c, t      ; v.c ^= G(v.d, &key, j+6, 5);
     
     xchg   a, b
     xchg   c, d
     xchg   b, c
     
-    cmp    dword[esp+4*4], BELT_ENCRYPT  
-    je     b_l5         ; if (enc==BELT_ENCRYPT) 
-                        ;     continue;
+    popfd
+    pushfd
+    je     b_l5      ; if (enc==BELT_ENCRYPT) 
+                     ;     continue;
     xchg   b, c
     xchg   a, d
 b_l5:
-    inc    i
-    cmp    i, 8
-    jnz    b_l2
+    inc    dword[esp+i]
+    cmp    dword[esp+i], 8
+    jnz    b_l3
     
-    pop    eax
-    pop    edi
-    push   edi
+    popfd            ; restore flags
+    pop    eax       ; remove j
+    pop    eax       ; remove key
+    pop    eax       ; remove i
+    pop    edi       ; restore blk
+    push   edi       ; save blk
 
     xchg   eax, b
-    stosd
+    stosd            ; blk[0] = b
     xchg   eax, d
-    stosd
+    stosd            ; blk[1] = d
     xchg   eax, a
-    stosd
+    stosd            ; blk[2] = a
     xchg   eax, c
-    stosd
+    stosd            ; blk[3] = c
     
-    pop    edi
-    cmp    dword[esp+2*4], BELT_ENCRYPT  
+    pop    edi       ; restore blk
     je     b_l6
     
-    stosd
-    xchg   eax, c
-    stosd
+    stosd            ; blk[0] = c 
+    xchg   eax, c    
+    stosd            ; blk[1] = a
     xchg   eax, a
-    stosd
+    stosd            ; blk[2] = d
     xchg   eax, d
-    stosd
+    stosd            ; blk[3] = b
 b_l6:
-    add    esp, pushad_t_size + 3*4  ; release stack
-    popad                    ; restore registers
+    popad            ; release stack for key
+    popad            ; restore registers
     ret
     
     
