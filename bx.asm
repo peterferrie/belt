@@ -30,7 +30,7 @@
 ; -----------------------------------------------
 ; Bel-T block cipher in x86 assembly
 ;
-; size: 500
+; size: 499
 ;
 ; global calls use cdecl convention
 ;
@@ -99,9 +99,9 @@ _belt_encryptx:
     push   edx        ; save i
     push   edi        ; save key
     push   edx        ; save j
-    test   eax, eax   ; BELT_ENCRYPT?
-    pushfd            ; save result
-    je     b_l1
+    dec    eax        ; BELT_ENCRYPT?
+    pushfd            ; save flags
+    js     b_l1
     
     mov    esi, edi
 reverse_key:
@@ -181,13 +181,13 @@ b_l1:
     db 0xD4, 0xEF, 0xD9, 0xB4, 0x3A, 0x62, 0x28, 0x75,
     db 0x91, 0x14, 0x10, 0xEA, 0x77, 0x6C, 0xDA, 0x1D
 g_l0:
-    pop    ebx                 ; ebx=H 
+    pop    ebx        ; ebx=H 
 g_l1:
-    xlatb                      ; u.b[i] = H[u.b[i]];
-    ror    eax, 8              ; u.w = ROTR(u.w, 8)
+    xlatb             ; u.b[i] = H[u.b[i]];
+    ror    eax, 8     ; u.w = ROTR(u.w, 8)
     loop   g_l1
-    pop    ecx                 ; ecx=r
-    rol    eax, cl             ; return ROTL32(u.w, r);
+    pop    ecx        ; ecx=r
+    rol    eax, cl    ; return ROTL32(u.w, r);
     mov    [esp+_eax], eax
     popad
     retn   2*4
@@ -219,9 +219,9 @@ b_l3:
     mov    t, [esp+i] ; t = i + 1;
     inc    t
     
-    popfd
-    pushfd
-    je     b_l4
+    popfd             ; set flags
+    pushfd            ; save flags
+    js     b_l4
     
     push   7                 
     pop    t
@@ -251,9 +251,9 @@ b_l4:
     xchg   c, d
     xchg   b, c
     
-    popfd
-    pushfd
-    je     b_l5      ; if (enc==BELT_ENCRYPT) 
+    popfd            ; set flags
+    pushfd           ; save flags
+    js     b_l5      ; if (enc==BELT_ENCRYPT) 
                      ;     continue;
     xchg   b, c
     xchg   a, d
@@ -279,7 +279,7 @@ b_l5:
     stosd            ; blk[3] = c
     
     pop    edi       ; restore blk
-    je     b_l6
+    js     b_l6
     
     stosd            ; blk[0] = c 
     xchg   eax, c    
