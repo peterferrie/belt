@@ -36,6 +36,36 @@
 #define BELT_ENCRYPT 0
 #define BELT_DECRYPT 1
 
+// 32-bit type
+typedef union {
+    uint8_t  b[4];
+    uint32_t w;
+} w32_t;
+
+// 128-bit type
+typedef struct {
+    union {
+      uint8_t  v8[16];
+      uint32_t w[4];
+      struct {
+        uint32_t a, b, c, d;
+      };
+    };
+} w128_t;
+
+// 256-bit type
+typedef struct {
+    union {
+      uint8_t  v8[32];
+      uint32_t w[8];
+      uint64_t q[4];
+      struct {
+        uint32_t a, b, c, d;
+        uint32_t e, f, g, h;
+      };
+    };
+} w256_t;
+
 #ifdef INTRINSICS
 
 #define ROTL32(v, n) _rotl(v, n)

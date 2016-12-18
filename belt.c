@@ -29,35 +29,6 @@
 
 #include "belt.h"
 
-// 32-bit type
-typedef union {
-    uint8_t  b[4];
-    uint32_t w;
-} w32_t;
-
-// 128-bit type
-typedef struct {
-    union {
-      uint8_t  v8[16];
-      uint32_t w[4];
-      struct {
-        uint32_t a, b, c, d;
-      };
-    };
-} w128_t;
-
-// 256-bit type
-typedef struct {
-    union {
-      uint8_t  v8[32];
-      uint32_t w[8];
-      struct {
-        uint32_t a, b, c, d;
-        uint32_t e, f, g, h;
-      };
-    };
-} w256_t;
-
 // sbox
 const uint8_t H[256] =
 { 0xB1, 0x94, 0xBA, 0xC8, 0x0A, 0x08, 0xF5, 0x3B,
@@ -103,7 +74,8 @@ uint32_t G(uint32_t x, w256_t *key, int idx, int r) {
     for (i=0; i<4; i++) {
       u.b[i] = H[u.b[i]];
     }
-    return ROTL32(u.w, r);
+    u.w = ROTL32(u.w, r);
+    return u.w;
 }
 
 // perform encryption and decryption based on enc parameter
@@ -159,6 +131,7 @@ b_l3:
       XCHG(v.b, v.c, t);
       XCHG(v.a, v.d, t);
     }
+
     // save data for encryption
     x[0] = v.b; x[1] = v.d;
     x[2] = v.a; x[3] = v.c;
