@@ -100,18 +100,18 @@ void belt_encrypt(void *blk, const void *ks, int enc)
     memcpy (v.v8, (uint8_t*)blk, 16);
 
     // apply 8 rounds
-    for (i=0, j=0; i<8; i++, j += 7)
+    for (i=0, j=0; i<8; j += 7)
     {
       v.b ^= G(v.a,       &key, j+0, 5);
       v.c ^= G(v.d,       &key, j+1,21);
       v.a -= G(v.b,       &key, j+2,13);
       e    = G(v.b + v.c, &key, j+3,21);
-      t    = i + 1;
+      t    = ++i;
 
       if (enc==BELT_ENCRYPT) 
           goto b_l3;
       
-      t = (7 - i) + 1;
+      t = -(t - 9);
 b_l3:
       e   ^= t;
       v.b += e;
