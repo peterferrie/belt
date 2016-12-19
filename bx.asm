@@ -30,7 +30,7 @@
 ; -----------------------------------------------
 ; Bel-T block cipher in x86 assembly
 ;
-; size: 494
+; size: 490
 ;
 ; global calls use cdecl convention
 ;
@@ -214,17 +214,16 @@ b_l3:
     call   G          ; e  = G(b + c, key, j+3,21);
     xchg   t, e
     
-    mov    t, [esp+i] ; t = i + 1;
-    inc    t
+    inc    dword[esp+i] ; i++
     
+    mov    t, [esp+i] ; t = i;
+
     popfd             ; set flags
     pushfd            ; save flags
     js     b_l4
     
-    push   7                 
-    pop    t
-    sub    t, dword[esp+i]
-    inc    t         ; t = (7 - i) + 1;
+    sub    t, 9
+    neg    t         ; t = (7 - i) + 1;
 b_l4:
     xor    e, t      ; e   ^= t;
     add    b, e      ; v.b += e;
@@ -256,7 +255,6 @@ b_l4:
     xchg   b, c
     xchg   a, d
 b_l5:
-    inc    dword[esp+i]
     cmp    dword[esp+i], 8
     jnz    b_l3
     
