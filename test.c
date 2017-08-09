@@ -1,6 +1,8 @@
 
 
 #include <stdio.h>
+#include <string.h>
+
 #include "belt.h"
 
 int equ(uint8_t x[], uint8_t y[], int len) {
@@ -61,8 +63,6 @@ int main() {
       { 0x0D, 0xC5, 0x30, 0x06, 0x00, 0xCA, 0xB8, 0x40, 
         0xB3, 0x84, 0x48, 0xE5, 0xE9, 0x93, 0xF4, 0x21 };
     
-    uint8_t ks[32] = {0};
-
     size_t i;
 
     memcpy (outenc, inenc, 16);

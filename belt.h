@@ -32,6 +32,9 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
+
+#include "macros.h"
 
 #define BELT_ENCRYPT 0
 #define BELT_DECRYPT 1
@@ -66,45 +69,12 @@ typedef struct {
     };
 } w256_t;
 
-#ifdef INTRINSICS
-
-#define ROTL32(v, n) _rotl(v, n)
-#define ROTR32(v, n) _rotr(v, n)
-
-#define memcpy(d, s, n) __movsb(d, s, n)
-#define memset __stosb (d, v, n)
-
-#else
-
-#define U8V(v)  ((uint8_t)(v)  & 0xFFU)
-#define U16V(v) ((uint16_t)(v) & 0xFFFFU)
-#define U32V(v) ((uint32_t)(v) & 0xFFFFFFFFUL)
-
-#define ROTL8(v, n) \
-  (U8V((v) << (n)) | ((v) >> (8 - (n))))
-
-#define ROTL16(v, n) \
-  (U16V((v) << (n)) | ((v) >> (16 - (n))))
-
-#define ROTL32(v, n) \
-  (U32V((v) << (n)) | ((v) >> (32 - (n))))
-
-#define ROTR8(v, n) ROTL8(v, 8 - (n))
-#define ROTR16(v, n) ROTL16(v, 16 - (n))
-#define ROTR32(v, n) ROTL32(v, 32 - (n))
-#endif
-
-#ifdef USE_ASM
-#define belt_encrypt(x,y,z) belt_encryptx(x,y,z)
-#endif
-
-#define XCHG(x, y, t) (t) = (x); (x) = (y); (y) = (t);
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void belt_encrypt(void *blk, const void *ks, int enc);
+void belt_encryptx(void *blk, const void *ks, int enc);
 
 #ifdef __cplusplus
 }

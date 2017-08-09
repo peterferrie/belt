@@ -92,7 +92,7 @@ void belt_encrypt(void *blk, const void *ks, int enc)
     // if decryption, rotate key 128-bits
     if (enc==BELT_DECRYPT) {
       for (i=0; i<4; i++) {
-        XCHG (key.w[i], key.w[7-i], t);
+        XCHG (key.w[i], key.w[7-i]);
       }
     }
     
@@ -120,16 +120,16 @@ b_l3:
       v.b ^= G(v.a,     &key, j+5,21);
       v.c ^= G(v.d,     &key, j+6, 5);
 
-      XCHG(v.a, v.b, t);
-      XCHG(v.c, v.d, t);
-      XCHG(v.b, v.c, t);
+      XCHG(v.a, v.b);
+      XCHG(v.c, v.d);
+      XCHG(v.b, v.c);
 
       if (enc==BELT_ENCRYPT)
           continue;
       
       // swap for decryption
-      XCHG(v.b, v.c, t);
-      XCHG(v.a, v.d, t);
+      XCHG(v.b, v.c);
+      XCHG(v.a, v.d);
     }
 
     // save data for encryption
